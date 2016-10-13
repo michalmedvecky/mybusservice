@@ -2,10 +2,9 @@ FROM ubuntu:16.04
 
 RUN apt-get update && apt-get -y install python-dev python-pip git python-virtualenv
 RUN mkdir /opt/mybusservice/
-RUN cd /opt/mybusservice && git clone https://github.com/michalmedvecky/mybusservice.git 
-RUN mv mybusservice/* && virtualenv app && rm -fr mybusservice
-RUN . app/bin/activate
-RUN pip install -r requirements.txt
+RUN git clone https://github.com/michalmedvecky/mybusservice.git /opt/mybusservice/
+RUN virtualenv /opt/mybusservice/app
+RUN /opt/mybusservice/app/bin/pip install -r /opt/mybusservice/requirements.txt
 
-CMD /opt/mybusservice/app.py
+CMD /opt/mybusservice/app/bin/python /opt/mybusservice/app.py
 

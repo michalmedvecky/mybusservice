@@ -17,14 +17,19 @@ Everything is pre-packed into Docker containers and contains Yaml definitions fo
 
 ## Endpoints
 
-* `/agencyList` - list agencies
-* `/routeList/<agency>` - list routes of the specific agency
-* `/routeConfig/<agency>/<route>` - show route config for a specific agency and route
-
-* `/doesNotRunAtTime/<hour>` - list lines that do not run at <hour> (0-23). WARNING! Takes a long time (several minutes) when lines are not cached.
 * `/health-check` - check whether the service is running and has an active Redis connection
 * `/slow-queries` - show list of slow queries (and clean them)
 * `/stats` - show statistics of number of requests to every endpoint
+* `/doesNotRunAtTime/<int:hour>`
+* `/routeList/<string:agency>`
+* `/routeConfig/<string:agency>/<string:route>`
+* `/schedule/<string:agency>/<string:route>`
+* `/predictions/bystopid/<string:agency>/<string:stopid>`
+* `/predictions/bystopid/<string:agency>/<string:stopid>/<string:routetag>`
+* `/predictions/bystoptag/<string:agency>/<string:routetag>/<string:stoptag>`
+* `/predictionsForMultiStops/<string:agency>/<string:stop>/... unlimited optional stops`§
+* `/messages/<string:agency>/<string:r>/... unlimited optional r's`
+* `/vehicleLocations/<string:agency>/<string:routetag>/<string:epoch>`
  
 The application also accepts the original format of the nextbus api:
 

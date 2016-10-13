@@ -4,18 +4,28 @@ import xml.etree.ElementTree
 import requests
 import pprint
 import redis
-import datetime
-from datetime import datetime
 import time
+import datetime
+from datetime import datetime, timedelta
 from flask import Flask
 from flask import request,make_response
 from redis.sentinel import Sentinel
 import xml
 from xml.etree.ElementTree import Element, SubElement, Comment, tostring
 import xml.dom.minidom
+import os
 
 nburl="http://webservices.nextbus.com/service/publicXMLFeed?command="
-config_slow=-1 # Queries longer than this will be considered slow
+try:
+    config_slow=os.env['MYBUSAPP_SLOW'] # timeout for slow queries
+except AttributeError:
+    config_slow=5000
+
+try:
+    config_slow=os.env['MYBUSAPP_SENTINEL'] # hostname of redis sentinel
+except AttributeError:
+    config_slow="redis-sentinel"
+
 valid_endpoints=["/agencyList","/doesNotRunAtTime","/health-check","/slow-queries","/stats","/routeList","/routeConfig","/predictions","/predictionForMultiStops","/schedule","/messages","/vehicleLocations"]
 
 app = Flask(__name__)
@@ -48,7 +58,6 @@ def log_slow_request(url,t):
 def cachepage(url):
     """Lookup the page in cache (Redis) of fetch it and store it there"""
     print("Requesting "+url)
-    rwdis.incr("stats:validrequests", amount=1)
 
     if rodis.exists(url):
         return rodis.get(url)
@@ -61,7 +70,7 @@ def cachepage(url):
 
 def myresponse(url):
     """Creates response object, adds Expire header and code"""
-    expiry_time = datetime.timedelta(0,rodis.ttl(url)) + datetime.datetime.utcnow()
+    expiry_time = timedelta(0,rodis.ttl(url)) + datetime.utcnow()
     response = make_response(cachepage(url))
     response.mimetype = "text/plain"
     response.headers["Expires"] = expiry_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -159,11 +168,68 @@ def myrouteList(agency):
     return contents
 
 @app.route('/routeConfig/<string:agency>/<string:route>')
+@app.route('/schedule/<string:agency>/<string:route>')
 def routeConfig(agency,route):
     t_start=time.time()
-    rwdis.incr("requests:/routeConfig", amount=1)
-    rwdis.incr("stats:validrequests", amount=1)
-    url=nburl+"routeConfig&a="+agency+"&r="+route
+    rwdis.incr("requests:/"+request.path[1:], amount=1)
+    url=nburl+request.path[1:]+"&a="+agency+"&r="+route
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
+
+@app.route('/predictions/bystopid/<string:agency>/<string:stopid>')
+def predictions1(agency,stopid):
+    t_start=time.time()
+    rwdis.incr("requests:/predictions", amount=1)
+    url=nburl+"predictions&a="+agency+"&stopId="+stopId
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
+
+@app.route('/predictions/bystopid/<string:agency>/<string:stopid>/<string:routetag>')
+def predictions2(agency,stopid,routetag):
+    t_start=time.time()
+    rwdis.incr("requests:/predictions", amount=1)
+    url=nburl+"predictions&a="+agency+"&stopId="+stopId+"&routeTag="+routetag
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
+
+@app.route('/predictions/bystoptag/<string:agency>/<string:routetag>/<string:stoptag>')
+def predictions3(agency,routetag,stoptag):
+    t_start=time.time()
+    rwdis.incr("requests:/predictions", amount=1)
+    url=nburl+"predictions&a="+agency+"&s="+stoptag+"&r="+routetag
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
+
+@app.route('/predictionsForMultiStops/<string:agency>/<path:varargs>')
+@app.route('/messages/<string:agency>/<path:varargs>')
+
+def predictionsformultistops(agency,varargs):
+    t_start=time.time()
+    rwdis.incr("requests:/"+request.path[1:], amount=1)
+    extra=""
+    print(request.path)
+    if "predictionsForMultiStops" in request.path:
+        extrakw="stops"
+    else:
+        extrakw="r"
+    for item in varargs.split("/"):
+        print(extrakw+": "+item)
+        extra+="&"+extrakw+"="+item
+    url=nburl+"{param}".format(param="predictionsForMultiStops" if "predictionsForMultiStops" in request.path else "messages")+"&a="+agency+extra
+    print(url)
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
+
+@app.route('/vehicleLocations/<string:agency>/<string:routetag>/<string:epoch>')
+def vehiclelocations(agency,routetag,epoch):
+    t_start=time.time()
+    rwdis.incr("requests:/vehicleLocations", amount=1)
+    url=nburl+"vehicleLocations&a="+agency+"&t="+epoch+"&r="+routetag
     contents=myresponse(url)
     log_slow_request(url, t_start)
     return contents
@@ -188,11 +254,10 @@ def proxyHandler():
 @app.route('/<path:path>')
 def notfound(path):
     """Default handler for nonexistent endpoints"""
-    rwdis.incr("stats:invalidrequests", amount=1)
     response=make_response("Not found\n")
     response.code=404
 #    return 'You want path: %s \n' % path+" "+request.method
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,host="0.0.0.0")
