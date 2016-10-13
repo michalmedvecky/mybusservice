@@ -48,29 +48,60 @@ Those endpoints just pass `?command=<endpoint>&originalparameters...`
 
 Deploment consists of multiple steps. 
 
+### Prerequisities
+
+You need Docker on the machine where building the image
+
+You need gcloud installed and configured to work against GCE (with some container cluster privileges that are hard to specify within GCE :-)
+
+You need to set `$YOURGCEPROJECTIDENTIFIER` to your project name in GCE:
+    export YOURGCEPROJECTIDENTIFIER=google-dummy-name-123
+
 ### Create a container cluster.
 
 To create a demo container cluster in GCE, run this command:
 
-    gcloud container --project "stellar-forest-96608" clusters create "mybusappcluster" --zone "europe-west1-c" --machine-type "g1-small" --scope "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly" --num-nodes "3" --network "default" --no-enable-cloud-logging --no-enable-cloud-monitoring --enable-autoscaling --min-nodes "3" --max-nodes "10"
+    gcloud container --project "$YOURGCEPROJECTIDENTIFIER" clusters create "mybusappcluster" --zone "europe-west1-c" --machine-type "g1-small" --scope "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly" --num-nodes "3" --network "default" --no-enable-cloud-logging --no-enable-cloud-monitoring --enable-autoscaling --min-nodes "3" --max-nodes "10"
 
 This cluster will cost you around $0.08 per hour.
+
+WARNING this cluster will not persist Redis data (we do not store anything that can't be redownloaded). Should you need data to persist, you need to add persistent storage to Redis pods (out of scope of this excercise).
 
 ### Deploy Redis 
 
 Redis deployment files are unmodified from kubernetes repo (https://github.com/kubernetes/kubernetes/). They are included in this repository just for the convenience.
 
+#### Create a bootstrap master
+kubectl create -f examples/storage/redis/redis-master.yaml
+
+#### Create a service to track the sentinels
+kubectl create -f examples/storage/redis/redis-sentinel-service.yaml
+
+#### Create a replication controller for redis servers
+kubectl create -f examples/storage/redis/redis-controller.yaml
+
+#### Create a replication controller for redis sentinels
+kubectl create -f examples/storage/redis/redis-sentinel-controller.yaml
+
+#### Scale both replication controllers
+kubectl scale rc redis --replicas=3
+kubectl scale rc redis-sentinel --replicas=3
+
+#### Delete the original master pod
+kubectl delete pods redis-master
     
 ### Clone this repo
 
 Clone this repo to your local dir
-    mkdir tmp
+    mkdir -p tmp && cd tmp
     git clone https://github.com/michalmedvecky/mybusapp
     cd mybusapp
  
 ### Build containers for the app
     cd Docker/mybusapp
-    docker build .
+    docker build -t gcr.io/$YOURGCEPROJECTIDENTIFIER/mybusapp:latest .
+    gcloud docker push gcr.io/$YOURGCEPROJECTIDENTIFIER/mybusapp:latest
 
 ### Deploy it to Kubernetes
+TODO
 
