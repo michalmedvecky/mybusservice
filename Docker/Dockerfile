@@ -5,6 +5,7 @@ RUN mkdir /opt/mybusservice/
 RUN git clone https://github.com/michalmedvecky/mybusservice.git /opt/mybusservice/
 RUN virtualenv /opt/mybusservice/app
 RUN /opt/mybusservice/app/bin/pip install -r /opt/mybusservice/requirements.txt
+RUN rm -fr /opt/mybusservice/{k8s,.git,Docker,README.md}
 
 CMD /opt/mybusservice/app/bin/python /opt/mybusservice/app.py
 
