@@ -47,7 +47,7 @@ Deploment consists of multiple steps.
 
 To create a demo container cluster in GCE, run this command:
 
-    gcloud container --project "stellar-forest-96608" clusters create "mybusappcluster" --zone "europe-west1-c" --machine-type "g1-small-" --scope "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly" --num-nodes "3" --network "default" --no-enable-cloud-logging --no-enable-cloud-monitoring --enable-autoscaling --min-nodes "3" --max-nodes "10"
+    gcloud container --project "stellar-forest-96608" clusters create "mybusappcluster" --zone "europe-west1-c" --machine-type "g1-small" --scope "https://www.googleapis.com/auth/compute","https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly" --num-nodes "3" --network "default" --no-enable-cloud-logging --no-enable-cloud-monitoring --enable-autoscaling --min-nodes "3" --max-nodes "10"
 
 This cluster will cost you around $0.08 per hour.
 
