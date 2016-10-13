@@ -40,11 +40,13 @@ except Exception as e:
         exit(1)
 
 def log_slow_request(url,t):
+    """Log requests that are slower than t"""
     if t>config_slow:
         timeofevent=time.strftime("%a, %d %b %Y %H:%M:%S GMT")
         rwdis.sadd("slowrequests",timeofevent+" Query "+url+" took "+str(t)+" milliseconds.")
 
 def cachepage(url):
+    """Lookup the page in cache (Redis) of fetch it and store it there"""
     print("Requesting "+url)
     rwdis.incr("stats:validrequests", amount=1)
 
@@ -58,6 +60,7 @@ def cachepage(url):
         return r.content
 
 def myresponse(url):
+    """Creates response object, adds Expire header and code"""
     expiry_time = datetime.timedelta(0,rodis.ttl(url)) + datetime.datetime.utcnow()
     response = make_response(cachepage(url))
     response.mimetype = "text/plain"
@@ -148,16 +151,22 @@ def health_check():
 
 @app.route('/routeList/<string:agency>')
 def myrouteList(agency):
+    t_start=time.time()
     rwdis.incr("requests:/routeList")
     url=nburl+"routeList&a="+agency
-    return myresponse(url)
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
 
 @app.route('/routeConfig/<string:agency>/<string:route>')
 def routeConfig(agency,route):
+    t_start=time.time()
     rwdis.incr("requests:/routeConfig", amount=1)
     rwdis.incr("stats:validrequests", amount=1)
     url=nburl+"routeConfig&a="+agency+"&r="+route
-    return myresponse(url)
+    contents=myresponse(url)
+    log_slow_request(url, t_start)
+    return contents
 
 @app.route('/agencyList')
 @app.route('/routeList')
@@ -178,6 +187,7 @@ def proxyHandler():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def notfound(path):
+    """Default handler for nonexistent endpoints"""
     rwdis.incr("stats:invalidrequests", amount=1)
     response=make_response("Not found\n")
     response.code=404
