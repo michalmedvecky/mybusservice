@@ -1,0 +1,49 @@
+apiVersion: v1
+items:
+- apiVersion: extensions/v1beta1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: 2016-10-18T07:55:45Z
+    generation: 2
+    labels:
+      run: mybusapp
+    name: mybusapp
+    namespace: default
+    resourceVersion: "883910"
+    selfLink: /apis/extensions/v1beta1/namespaces/default/deployments/mybusapp
+    uid: 46a9d37e-9508-11e6-b1aa-42010a8400e8
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        run: mybusapp
+    strategy:
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 1
+      type: RollingUpdate
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          run: mybusapp
+      spec:
+        containers:
+        - image: gcr.io/stellar-forest-96608/mybusservice:latest
+          imagePullPolicy: Always
+          name: mybusapp
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 3
+    observedGeneration: 2
+    replicas: 3
+    updatedReplicas: 3
+kind: List
+metadata: {}
