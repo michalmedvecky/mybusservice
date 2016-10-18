@@ -27,7 +27,7 @@ items:
           run: mybusapp
       spec:
         containers:
-        - image: gcr.io/stellar-forest-96608/mybusservice:latest
+        - image: gcr.io/YOURGCEPROJECTIDENTIFIER/mybusservice:latest
           imagePullPolicy: Always
           name: mybusapp
           resources: {}

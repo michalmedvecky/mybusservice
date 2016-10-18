@@ -151,7 +151,8 @@ Clone this repo to your local dir
     cd ../..
 
 ### Deploy it to Kubernetes
-    
+
+    sed -i 's/YOURGCEPROJECTIDENTIFIER/'$YOURGCEPROJECTIDENTIFIER'/g' k8s/mybusapp/*.yaml
     kubectl create -f k8s/mybusapp/mybusapp.yaml
     kubectl create -f k8s/mybusapp/svc-mybusapp.yaml
 
