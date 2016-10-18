@@ -35,28 +35,42 @@ valid_endpoints=["/agencyList","/doesNotRunAtTime","/health-check","/slow-querie
 
 app = Flask(__name__)
 
-try:
-    # try connecting to local redis first
-    print("Trying local redis first")
-    red = redis.StrictRedis(host='localhost', port=6379, db=0)
-    red.set("a","1")
-    red.expire("a",1)
-    rwdis=red
-    rodis=red
-
-except Exception as e:
+def starve_for_redis():
+    """Try connecting to redis."""
     try:
-        print("Trying to find Redis to connect to ...")
-        sentinel=Sentinel([("redis-sentinel", 26379)])
-        rwdis=sentinel.master_for("mymaster")
-        rodis=sentinel.slave_for("mymaster")
-        rwdis.get(None)
-        rodis.get(None)
-        print("Sentinel found, working in HA mode")
+        # try connecting to local redis first
+        print("Trying local redis first ... ")
+        red = redis.StrictRedis(host='localhost', port=6379, db=0)
+        red.set("a","1")
+        red.expire("a",1)
+        rwdis=red
+        rodis=red
+        return True
+
     except Exception as e:
-        print("Can't connect to any Redis, dying")
-        print(str(e))
-        exit(1)
+        try:
+            print("Failed. Trying to find sentinel ...")
+            sentinel=Sentinel([("redis-sentinel", 26379)])
+            rwdis=sentinel.master_for("mymaster")
+            rodis=sentinel.slave_for("mymaster")
+            rwdis.set("a","1")
+            rwdis.expire("a",1)
+            rodis.get("a",1)
+            print("Success! Sentinel found, working in HA mode")
+            return True
+        except Exception as e:
+            print("Failed! Can't connect to any Redis.")
+            print(str(e))
+            return False
+
+a=False
+first=True
+while not a:
+    if not first:
+        print("Sleeping for 10 seconds")
+        time.sleep(10)
+    if first: first=False
+    a=starve_for_redis()
 
 def log_slow_request(url,t):
     """Log requests that are slower than t"""
