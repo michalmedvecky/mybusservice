@@ -32,12 +32,14 @@ app = Flask(__name__)
 
 try:
     # try connecting to local redis first
+    print("Trying local redis first")
     red = redis.StrictRedis(host='localhost', port=6379, db=0)
-    red.ping
+    red.set("a","1")
+    red.expire("a",1)
     rwdis=red
     rodis=red
 
-except Exception as e:
+except ConnectionError:
     try:
         print("Trying to find Redis to connect to ...")
         sentinel=Sentinel([("redis-sentinel", 26379)])
@@ -45,6 +47,7 @@ except Exception as e:
         rodis=sentinel.slave_for("mymaster")
         rwdis.get(None)
         rodis.get(None)
+        print("Sentinel found, working in HA mode")
     except Exception as e:
         print("Can't connect to any Redis, dying")
         exit(1)
@@ -145,11 +148,11 @@ def doesnotrunattime(hour):
 
 @app.route('/health-check')
 def health_check():
-    rwdis.incr("requests:/health-check", amount=1)
     try:
         response = rodis.client_list()
         response = rwdis.client_list()
         response = make_response("OK\n")
+        rwdis.incr("requests:/health-check", amount=1)
         response.code=200
 
     except redis.ConnectionError:
