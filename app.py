@@ -55,7 +55,7 @@ def starve_for_redis():
             rodis=sentinel.slave_for("mymaster")
             rwdis.set("a","1")
             rwdis.expire("a",1)
-            rodis.get("a",1)
+            rodis.get("a")
             print("Success! Sentinel found, working in HA mode")
             return True
         except Exception as e:

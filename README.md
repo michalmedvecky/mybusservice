@@ -122,10 +122,14 @@ Redis deployment files are unmodified from kubernetes repo (https://github.com/k
 
     kubectl create -f k8s/redis/redis-sentinel-controller.yaml
 
+Wait for the pods to be in "Running" state (kubectl get pods)
+
 #### Scale both replication controllers
 
     kubectl scale rc redis --replicas=3
     kubectl scale rc redis-sentinel --replicas=3
+
+Wait for all pods to be in "Running" state (kubectl get pods)
 
 #### Delete the original master pod
 
@@ -144,17 +148,41 @@ Clone this repo to your local dir
     cd Docker/mybusapp
     docker build -t gcr.io/$YOURGCEPROJECTIDENTIFIER/mybusapp:latest .
     gcloud docker push gcr.io/$YOURGCEPROJECTIDENTIFIER/mybusapp:latest
+    cd ../..
 
 ### Deploy it to Kubernetes
     
-    kubectl create -f k8s/mybusapp.yaml
+    kubectl create -f k8s/mybusapp/mybusapp.yaml
+    kubectl create -f k8s/mybusapp/svc-mybusapp.yaml
 
 ### Get the LB public IP
 
     kubectl get svc mybusapp
 
+Be patient, assigning public IP to the service takes a while
 
 ### Access the api
    
     curl http://ip.address.of.the.deployment/agencyList
+
+## Notes 
+
+* The cluster scales automatically, based on cpu load, to more machines. So does the deployment (pods). Autoscaling based on different metrics (reported by container) is in Alpha on k8s.
+* The deployment uses k8s loadbalancer. Health check is implemented to check for pods health; in case something fails the container is automatically restarted
+* There is no cloud logging, you can get logs from every pod itself (should be done somehow better)
+
+## Known problems
+
+### Couldn't find type: v1beta1.Deployment
+
+    error validating "k8s/mybusapp/mybusapp.yaml": error validating data: couldn't find type: v1beta1.Deployment; if you choose to ignore these errors, turn validation off with --validate=false
+ 
+This means you have an old version of `kubectl`. You have two options
+- update kubectl, but be warned that then you might run into trouble 2 (below)
+- just add `--validate=false` before `-f` in `kubectl create ...` and you are done.
+
+### "error" : "invalid_grant"
+
+It's your precious `kubectl` that is broken. This happens with version 1.2.5, but 1.2.4 works fine.
+
 
