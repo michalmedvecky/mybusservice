@@ -35,8 +35,12 @@ valid_endpoints=["/agencyList","/doesNotRunAtTime","/health-check","/slow-querie
 
 app = Flask(__name__)
 
+rwdis=rodis=0
+
 def starve_for_redis():
     """Try connecting to redis."""
+    global rwdis
+    global rodis
     try:
         # try connecting to local redis first
         print("Trying local redis first ... ")
@@ -45,6 +49,8 @@ def starve_for_redis():
         red.expire("a",1)
         rwdis=red
         rodis=red
+        pprint.pprint(rodis)
+        print "Success! Connected."
         return True
 
     except Exception as e:
@@ -98,9 +104,9 @@ def myresponse(url):
     """Creates response object, adds Expire header and code"""
     expiry_time = timedelta(0,rodis.ttl(url)) + datetime.utcnow()
     contents=cachepage(url)
-    response.mimetype = "text/plain"
     if contents != 1:
         response = make_response(contents)
+        response.mimetype = "text/plain"
         response.headers["Expires"] = expiry_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response.code=200
     else:
@@ -110,6 +116,7 @@ def myresponse(url):
         s=xml.dom.minidom.parseString(tostring(err500))
         out=s.toprettyxml()
         response=make_response(out)
+        response.mimetype = "text/plain"
         response.code=500
     return response
 
