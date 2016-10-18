@@ -39,7 +39,7 @@ try:
     rwdis=red
     rodis=red
 
-except ConnectionError:
+except Exception as e:
     try:
         print("Trying to find Redis to connect to ...")
         sentinel=Sentinel([("redis-sentinel", 26379)])
@@ -50,6 +50,7 @@ except ConnectionError:
         print("Sentinel found, working in HA mode")
     except Exception as e:
         print("Can't connect to any Redis, dying")
+        print(str(e))
         exit(1)
 
 def log_slow_request(url,t):
