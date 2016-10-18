@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mybusapp
+  name: mybusapp
+  namespace: default
+spec:
+  clusterIP: 
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    run: mybusapp
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 

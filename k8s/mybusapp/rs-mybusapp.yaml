@@ -1,25 +1,21 @@
 apiVersion: v1
 items:
 - apiVersion: extensions/v1beta1
-  kind: Deployment
+  kind: ReplicaSet
   metadata:
     annotations:
+      deployment.kubernetes.io/desired-replicas: "3"
+      deployment.kubernetes.io/max-replicas: "4"
       deployment.kubernetes.io/revision: "1"
-    generation: 3
+    generation: 2
     labels:
-      app: mybusapp
-    name: mybusapp
+      run: mybusapp
     namespace: default
   spec:
     replicas: 3
     selector:
       matchLabels:
         run: mybusapp
-    strategy:
-      rollingUpdate:
-        maxSurge: 1
-        maxUnavailable: 1
-      type: RollingUpdate
     template:
       metadata:
         creationTimestamp: null
@@ -32,20 +28,13 @@ items:
           name: mybusapp
           resources: {}
           terminationMessagePath: /dev/termination-log
-          livenessProbe:
-            httpGet:
-              path: /health-check
-              port: 5000
-            initialDelaySeconds: 15
-            timeoutSeconds: 5
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         securityContext: {}
         terminationGracePeriodSeconds: 30
   status:
-    availableReplicas: 3
-    observedGeneration: 3
+    fullyLabeledReplicas: 3
+    observedGeneration: 2
     replicas: 3
-    updatedReplicas: 3
 kind: List
 metadata: {}
