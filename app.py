@@ -26,6 +26,11 @@ try:
 except AttributeError:
     config_slow="redis-sentinel"
 
+try:
+    config_cachetime=os.env['MYBUSAPP_CACHETIME'] # hostname of redis sentinel
+except AttributeError:
+    config_cachetime=1800
+
 valid_endpoints=["/agencyList","/doesNotRunAtTime","/health-check","/slow-queries","/stats","/routeList","/routeConfig","/predictions","/predictionForMultiStops","/schedule","/messages","/vehicleLocations"]
 
 app = Flask(__name__)
@@ -67,22 +72,36 @@ def cachepage(url):
         return rodis.get(url)
     else:
         print("Getting "+url)
-        r=requests.get(url)
-        print("Status code: "+str(r.status_code))
-        rwdis.set(url,r.content, ex=180000)
-        return r.content
+        try:
+            r=requests.get(url)
+            print("Status code: "+str(r.status_code))
+            rwdis.set(url,r.content, ex=config_cachetime)
+            return r.content
+        except:
+            return 1
 
 def myresponse(url):
     """Creates response object, adds Expire header and code"""
     expiry_time = timedelta(0,rodis.ttl(url)) + datetime.utcnow()
-    response = make_response(cachepage(url))
+    contents=cachepage(url)
     response.mimetype = "text/plain"
-    response.headers["Expires"] = expiry_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
-    response.code=200
+    if contents != 1:
+        response = make_response(contents)
+        response.headers["Expires"] = expiry_time.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        response.code=200
+    else:
+        err500 = Element("body")
+        err = SubElement(err404, "Error", attrib={"shouldRetry":"True"})
+        err.text = "Something bad happened on the server. System administrator might find error in the log."
+        s=xml.dom.minidom.parseString(tostring(err500))
+        out=s.toprettyxml()
+        response=make_response(out)
+        response.code=500
     return response
 
 @app.route("/stats")
 def stats():
+    """Returns site statistics (endpoint access count)"""
     rwdis.incr("requests:/stats", amount=1)
     out = Element("body", attrib={})
     for e in valid_endpoints:
@@ -92,6 +111,7 @@ def stats():
 
 @app.route("/doesNotRunAtTime/<int:hour>")
 def doesnotrunattime(hour):
+    """Returns routes that do not run at specified hour"""
     t_start=time.time()
     if rodis.exists("nonruntimes:"+str(hour)):
         body = Element("body")
@@ -111,7 +131,7 @@ def doesnotrunattime(hour):
             a=agency.get('tag')
             print("Adding "+a)
             rwdis.sadd("agencies",a)
-        rwdis.expire("agencies", 86400) # I guess agencies dont' update more frequently than daily
+        rwdis.expire("agencies", 86400) # I guess agencies dont' update more frequently than daily ...
 
     for a in rodis.smembers("agencies"):
         if not rodis.exists(a+":routes"):
@@ -122,7 +142,7 @@ def doesnotrunattime(hour):
             for route in routes.findall('route'):
                 print("Adding route "+route.get('tag')+" for agency "+a)
                 rwdis.sadd(a+":routes",route.get('tag'))
-            rwdis.expire(a+":routes",86400)
+            rwdis.expire(a+":routes",86400) # ... and routes as well
 
     for a in rodis.smembers("agencies"):
         for r in rodis.smembers(a+":routes"):
@@ -149,6 +169,7 @@ def doesnotrunattime(hour):
 
 @app.route('/health-check')
 def health_check():
+    """Health check. Checks the redis connection(s) and returns ok/non ok"""
     try:
         response = rodis.client_list()
         response = rwdis.client_list()
@@ -164,6 +185,7 @@ def health_check():
 
 @app.route('/routeList/<string:agency>')
 def myrouteList(agency):
+    """Get route list for agency"""
     t_start=time.time()
     rwdis.incr("requests:/routeList")
     url=nburl+"routeList&a="+agency
@@ -174,6 +196,7 @@ def myrouteList(agency):
 @app.route('/routeConfig/<string:agency>/<string:route>')
 @app.route('/schedule/<string:agency>/<string:route>')
 def routeConfig(agency,route):
+    """Get Route config for agency/route"""
     t_start=time.time()
     rwdis.incr("requests:/"+request.path[1:], amount=1)
     url=nburl+request.path[1:]+"&a="+agency+"&r="+route
@@ -183,6 +206,7 @@ def routeConfig(agency,route):
 
 @app.route('/predictions/bystopid/<string:agency>/<string:stopid>')
 def predictions1(agency,stopid):
+    """Get route predictions by stopid for agency/stopid"""
     t_start=time.time()
     rwdis.incr("requests:/predictions", amount=1)
     url=nburl+"predictions&a="+agency+"&stopId="+stopId
@@ -192,6 +216,7 @@ def predictions1(agency,stopid):
 
 @app.route('/predictions/bystopid/<string:agency>/<string:stopid>/<string:routetag>')
 def predictions2(agency,stopid,routetag):
+    """Get route predictions by stopid for agency/stopid/routetag"""
     t_start=time.time()
     rwdis.incr("requests:/predictions", amount=1)
     url=nburl+"predictions&a="+agency+"&stopId="+stopId+"&routeTag="+routetag
@@ -201,6 +226,7 @@ def predictions2(agency,stopid,routetag):
 
 @app.route('/predictions/bystoptag/<string:agency>/<string:routetag>/<string:stoptag>')
 def predictions3(agency,routetag,stoptag):
+    """Get route predictions by stoptag for agency/routetag/stoptag"""
     t_start=time.time()
     rwdis.incr("requests:/predictions", amount=1)
     url=nburl+"predictions&a="+agency+"&s="+stoptag+"&r="+routetag
@@ -212,6 +238,7 @@ def predictions3(agency,routetag,stoptag):
 @app.route('/messages/<string:agency>/<path:varargs>')
 
 def predictionsformultistops(agency,varargs):
+    """Get predictions for multistops (varargs)"""
     t_start=time.time()
     rwdis.incr("requests:/"+request.path[1:], amount=1)
     extra=""
@@ -231,6 +258,7 @@ def predictionsformultistops(agency,varargs):
 
 @app.route('/vehicleLocations/<string:agency>/<string:routetag>/<string:epoch>')
 def vehiclelocations(agency,routetag,epoch):
+    """Fetch vehicle locations for agency/routetag/epoch"""
     t_start=time.time()
     rwdis.incr("requests:/vehicleLocations", amount=1)
     url=nburl+"vehicleLocations&a="+agency+"&t="+epoch+"&r="+routetag
@@ -247,6 +275,7 @@ def vehiclelocations(agency,routetag,epoch):
 @app.route('/predictionsForMultiStops')
 @app.route('/routeConfig')
 def proxyHandler():
+    """Just proxy the received request to upstream server (nburl)"""
     t_start=time.time()
     rwdis.incr("requests:"+request.path, amount=1)
     url=nburl+request.path[1:]+"{q}".format(q="&" if len(request.query_string)>0 else "")+request.query_string
@@ -258,10 +287,15 @@ def proxyHandler():
 @app.route('/<path:path>')
 def notfound(path):
     """Default handler for nonexistent endpoints"""
-    response=make_response("Not found\n")
+    err404 = Element("body")
+    err = SubElement(err404, "Error", attrib={"shouldRetry":"False"})
+    err.text = "But I still haven't found what I was looking for."
+    s=xml.dom.minidom.parseString(tostring(err404))
+    out=s.toprettyxml()
+    response=make_response(out)
     response.code=404
-#    return 'You want path: %s \n' % path+" "+request.method
+    print("Not found "+request.method+" /"+path)
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True,host="0.0.0.0")
+    app.run(debug=False,host="0.0.0.0")
