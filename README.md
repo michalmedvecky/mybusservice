@@ -152,7 +152,7 @@ Clone this repo to your local dir
 
 ### Deploy it to Kubernetes
 
-    sed -i 's/YOURGCEPROJECTIDENTIFIER/'$YOURGCEPROJECTIDENTIFIER'/g' k8s/mybusapp/*.yaml
+    sed -i bak 's/YOURGCEPROJECTIDENTIFIER/'$YOURGCEPROJECTIDENTIFIER'/g' k8s/mybusapp/*.yaml
     kubectl create -f k8s/mybusapp/mybusapp.yaml
     kubectl create -f k8s/mybusapp/svc-mybusapp.yaml
 
